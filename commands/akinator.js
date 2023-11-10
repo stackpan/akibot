@@ -10,39 +10,39 @@ export default {
         await interaction.reply('Pikirkan sebuah tokoh atau karakter untuk saya tebak...');
 
         const aki = new Aki({ region: AKINATOR_REGION, childMode: AKINATOR_CHILD_MODE, proxy: AKINATOR_PROXY });
-        
+
         const generateEmbed = (akiQuestion, akiProgress, akiCurrentStep) => (new EmbedBuilder())
             .setTitle(akiQuestion)
             .setFooter({ text: `Progress: ${akiProgress}%, Step: ${akiCurrentStep + 1}` });
-            
-            const generateComponents = (akiCurrentStep) => {
-                const answerButtons = tempAki.answers.map((answer, index) => (new ButtonBuilder).setCustomId(index.toString())
+
+        const generateComponents = (akiCurrentStep) => {
+            const answerButtons = tempAki.answers.map((answer, index) => (new ButtonBuilder).setCustomId(index.toString())
                 .setLabel(answer)
                 .setStyle(ButtonStyle.Primary));
-                
-                const backButton = (new ButtonBuilder).setCustomId('back')
+
+            const backButton = (new ButtonBuilder).setCustomId('back')
                 .setLabel('Kembali')
                 .setStyle(ButtonStyle.Secondary);
-                
-                const stopButton = (new ButtonBuilder).setCustomId('stop')
+
+            const stopButton = (new ButtonBuilder).setCustomId('stop')
                 .setLabel('Berhenti')
                 .setStyle(ButtonStyle.Danger);
-                
-                const answerRow = (new ActionRowBuilder()).addComponents(...answerButtons);
-                const actionRow = new ActionRowBuilder();
-                
+
+            const answerRow = (new ActionRowBuilder()).addComponents(...answerButtons);
+            const actionRow = new ActionRowBuilder();
+
             if (akiCurrentStep !== 0) {
                 actionRow.addComponents(backButton);
             }
 
             actionRow.addComponents(stopButton);
-            
+
             return [answerRow, actionRow];
         };
 
         let tempAki = await aki.start();
         let guessCounter = 0;
-        
+
         while (true) {
 
             const response = await interaction.editReply({
@@ -61,22 +61,15 @@ export default {
                         components: [],
                     });
 
-                    console.log('stop triggered');
-
                     break;
                 } else if (confirmation.customId === 'back') {
                     tempAki = await aki.back();
-
-                    console.log('back triggered');
                 } else {
                     const answer = +confirmation.customId;
-
-                    console.log('action triggered: ' + answer);
 
                     tempAki = await aki.step(answer);
                 }
 
-                console.log('reach to update');
                 await confirmation.deferUpdate();
             } catch (e) {
                 await interaction.editReply({ content: `Confirmation not received within ${AKINATOR_MAX_RESPONSE_MINUTE} minute, cancelling`, components: [] });
@@ -84,7 +77,6 @@ export default {
 
             if (aki.progress >= AKINATOR_WIN_PROGRESS || aki.currentStep % AKINATOR_WIN_EVERY_STEP === 0) {
 
-                console.log('aki win');
                 await interaction.editReply({
                     content: 'Tunggu sebentar, saya sedang menebak...',
                     embeds: [],
