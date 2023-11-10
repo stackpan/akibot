@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { Client, Collection, Events, GatewayIntentBits, REST, Routes } from 'discord.js';
-import 'dotenv/config'
+import { DISCORD_APPLICATION_ID, DISCORD_TOKEN } from './config.js';
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
@@ -24,7 +24,7 @@ for (const file of commandFiles) {
 	}
 }
 
-const rest = new REST().setToken(process.env.DISCORD_TOKEN);
+const rest = new REST().setToken(DISCORD_TOKEN);
 
 // Deploy commands
 (async () => {
@@ -34,7 +34,7 @@ const rest = new REST().setToken(process.env.DISCORD_TOKEN);
 		console.log(`Started refreshing ${commands.length} application (/) commands.`);
 
 		const data = await rest.put(
-			Routes.applicationCommands(process.env.DISCORD_APPLICATION_ID),
+			Routes.applicationCommands(DISCORD_APPLICATION_ID),
 			{ body: commands },
 		);
 
@@ -72,4 +72,4 @@ client.on(Events.InteractionCreate, async interaction => {
 });
 
 // Start the bot
-client.login(process.env.DISCORD_TOKEN);
+client.login(DISCORD_TOKEN);
