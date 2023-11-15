@@ -1,9 +1,5 @@
 import { Aki } from 'aki-api'
 import {
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  EmbedBuilder,
   SlashCommandBuilder
 } from 'discord.js'
 import {
@@ -15,183 +11,182 @@ import {
   AKINATOR_GUESS_WHEN_PROGRESS,
   AKINATOR_MAX_GUESS_COUNT
 } from '../config.js'
+import {
+  createConfirmationActionRow,
+  createFinalGuessEmbed,
+  createGuessEmbed,
+  createQuestionActionRow,
+  createQuestionAnswerRow,
+  createQuestionEmbed
+} from '../components/akinatorComponents.js'
 
-export default {
-  data: new SlashCommandBuilder()
-    .setName('akinator')
-    .setDescription('Permainan menebak karakter'),
-  async execute (interaction) {
-    await interaction.reply('Pikirkan seorang tokoh atau karakter untuk saya tebak...')
+const aki = new Aki({ region: AKINATOR_REGION, childMode: AKINATOR_CHILD_MODE, proxy: AKINATOR_PROXY })
 
-    const aki = new Aki({ region: AKINATOR_REGION, childMode: AKINATOR_CHILD_MODE, proxy: AKINATOR_PROXY })
+const data = new SlashCommandBuilder()
+  .setName('akinator')
+  .setDescription('Permainan menebak karakter')
 
-    const getQuestionEmbed = (akiQuestion, akiProgress, akiCurrentStep) => (new EmbedBuilder())
-      .setTitle(akiQuestion)
-      .setFooter({ text: `Progress: ${akiProgress}%, Pertanyaan: ${akiCurrentStep + 1}` })
+const execute = async function (interaction) {
+  const replyQuestion = async (question, progress, answers, currentStep) => {
+    return await interaction.editReply({
+      content: '',
+      embeds: [
+        createQuestionEmbed(question, progress, currentStep)
+      ],
+      components: [
+        createQuestionAnswerRow(answers),
+        createQuestionActionRow(currentStep)
+      ]
+    })
+  }
 
-    const getGuesserComponent = (akiCurrentStep) => {
-      const answerButtons = tempAki.answers.map((answer, index) => (new ButtonBuilder()).setCustomId(index.toString())
-        .setLabel(answer)
-        .setStyle(ButtonStyle.Primary))
+  const replyGuessQuestion = async (guess) => {
+    return await interaction.editReply({
+      content: 'Apakah ini yang kamu maksud?',
+      embeds: [
+        createGuessEmbed(guess)
+      ],
+      components: [
+        createConfirmationActionRow()
+      ]
+    })
+  }
 
-      const backButton = (new ButtonBuilder()).setCustomId('back')
-        .setLabel('Kembali')
-        .setStyle(ButtonStyle.Secondary)
+  const replyFinalGuessQuestion = async (guesses) => {
+    return await interaction.editReply({
+      content: 'Apakah tokoh yang sedang anda pikirkan adalah salah satu dari mereka?',
+      embeds: [
+        createFinalGuessEmbed(guesses)
+      ],
+      components: [
+        createConfirmationActionRow()
+      ]
+    })
+  }
 
-      const stopButton = (new ButtonBuilder()).setCustomId('stop')
-        .setLabel('Berhenti')
-        .setStyle(ButtonStyle.Danger)
+  const replyInactiveFallback = async () => {
+    await interaction.editReply({
+      content: `Akinator dibatalkan karena tidak dijawab selama ${AKINATOR_MAX_RESPONSE_MINUTE} minute`,
+      components: []
+    })
+  }
 
-      const answerRow = (new ActionRowBuilder()).addComponents(...answerButtons)
-      const actionRow = new ActionRowBuilder()
+  const awaitMessageComponentOption = {
+    filter: (i) => i.user.id === interaction.user.id,
+    time: AKINATOR_MAX_RESPONSE_MINUTE * 60000
+  }
 
-      if (akiCurrentStep !== 0) {
-        actionRow.addComponents(backButton)
-      }
+  const CHECKPOINT = aki.progress >= AKINATOR_GUESS_WHEN_PROGRESS || aki.currentStep % AKINATOR_GUESS_EVERY_STEP === 0
 
-      actionRow.addComponents(stopButton)
+  await interaction.reply('Pikirkan seorang tokoh atau karakter untuk saya tebak...')
 
-      return [answerRow, actionRow]
-    }
+  let lastWinAki = null
+  let guessCounter = 0
 
-    const binaryButtonComponent = (new ActionRowBuilder()).addComponents(
-      (new ButtonBuilder()).setCustomId('yes')
-        .setLabel('Iya')
-        .setStyle(ButtonStyle.Primary),
-      (new ButtonBuilder()).setCustomId('no')
-        .setLabel('Tidak')
-        .setStyle(ButtonStyle.Secondary)
-    )
+  let tempAki = await aki.start()
 
-    const awaitMessageComponentOption = {
-      filter: (i) => i.user.id === interaction.user.id,
-      time: AKINATOR_MAX_RESPONSE_MINUTE * 60000
-    }
+  while (true) {
+    const questionResponse = await replyQuestion(tempAki.question, aki.progress, tempAki.answers, aki.currentStep)
 
-    let tempAki = await aki.start()
-    let latestWinAki = null
-    let guessCounter = 0
+    // Question handling
+    try {
+      const questionConfirmation = await questionResponse.awaitMessageComponent(awaitMessageComponentOption)
 
-    while (true) {
-      const response = await interaction.editReply({
-        content: '',
-        embeds: [getQuestionEmbed(tempAki.question, aki.progress, aki.currentStep)],
-        components: getGuesserComponent(aki.currentStep)
-      })
-
-      try {
-        const confirmation = await response.awaitMessageComponent(awaitMessageComponentOption)
-
-        if (confirmation.customId === 'stop') {
-          await confirmation.update({
-            content: 'Akinator dibatalkan',
-            embeds: [],
-            components: []
-          })
-
-          break
-        } else if (confirmation.customId === 'back') {
-          tempAki = await aki.back()
-        } else {
-          const answer = Number(confirmation.customId)
-
-          tempAki = await aki.step(answer)
-        }
-
-        await confirmation.deferUpdate()
-      } catch (e) {
-        await interaction.editReply({
-          content: `Akinator dibatalkan karena tidak dijawab selama ${AKINATOR_MAX_RESPONSE_MINUTE} minute`,
-          components: []
-        })
-      }
-
-      if (aki.progress >= AKINATOR_GUESS_WHEN_PROGRESS || aki.currentStep % AKINATOR_GUESS_EVERY_STEP === 0) {
-        await interaction.editReply({
-          content: 'Tunggu sebentar, saya sedang menebak 🤔...',
+      if (questionConfirmation.customId === 'stop') {
+        await questionConfirmation.update({
+          content: 'Akinator dibatalkan',
           embeds: [],
           components: []
         })
 
-        latestWinAki = await aki.win()
-        const firstGuess = latestWinAki.guesses[0]
-        guessCounter++
-
-        const guessEmbed = new EmbedBuilder().setTitle(firstGuess.name)
-          .setDescription(firstGuess.description)
-          .setImage(firstGuess.absolute_picture_path)
-
-        const winResponse = await interaction.editReply({
-          content: 'Apakah ini yang kamu maksud?',
-          embeds: [guessEmbed.setFooter({ text: `Saya yakin ${Math.round((firstGuess.proba * 100) * 100) / 100}% adalah dia` })],
-          components: [binaryButtonComponent]
-        })
-
-        try {
-          const winConfirmation = await winResponse.awaitMessageComponent(awaitMessageComponentOption)
-
-          if (winConfirmation.customId === 'yes') {
-            await winConfirmation.update({
-              content: 'Baik, berarti tebakan saya benar. Senang bermain dengan anda 😉',
-              embeds: [guessEmbed.setFooter({ text: `Jumlah tebakan: ${guessCounter}` })],
-              components: []
-            })
-
-            break
-          }
-
-          if (winConfirmation.customId === 'no') {
-            await winConfirmation.deferUpdate()
-          }
-        } catch (e) {
-          await interaction.editReply({
-            content: `Akinator dibatalkan karena tidak dijawab selama ${AKINATOR_MAX_RESPONSE_MINUTE} minute`,
-            components: []
-          })
-        }
+        break
       }
 
-      if (guessCounter >= AKINATOR_MAX_GUESS_COUNT) {
-        const guesses = latestWinAki.guesses
+      if (questionConfirmation.customId === 'back') {
+        tempAki = await aki.back()
+      } else {
+        const answer = Number(questionConfirmation.customId)
 
-        const lastGuessEmbed = (new EmbedBuilder()).setTitle('Tebakan-tebakan saya adalah:')
-          .setFields(
-            ...guesses.slice(0, 5)
-              .map(guess => ({
-                name: `${guess.name} (${Math.round((guess.proba * 100) * 100) / 100}%)`,
-                value: guess.description
-              })))
-        const lastGuessResponse = await interaction.editReply({
-          content: 'Apakah tokoh yang sedang anda pikirkan adalah salah satu dari mereka?',
-          embeds: [lastGuessEmbed],
-          components: [binaryButtonComponent]
-        })
+        tempAki = await aki.step(answer)
+      }
 
-        try {
-          const lastGuessConfirmation = await lastGuessResponse.awaitMessageComponent(awaitMessageComponentOption)
+      await questionConfirmation.deferUpdate()
+    } catch (e) {
+      await replyInactiveFallback()
+      console.error(e)
+    }
 
-          let content = ''
-          const embeds = []
+    if (CHECKPOINT) {
+      await interaction.editReply({
+        content: 'Tunggu sebentar, saya sedang menebak 🤔...',
+        embeds: [],
+        components: []
+      })
 
-          if (lastGuessConfirmation.customId === 'yes') {
-            content = 'Jika begitu, tokoh yang anda maksud adalah salah satu dari mereka. Senang bermain dengan anda 😉'
-            embeds.push(lastGuessEmbed)
-          }
+      guessCounter++
 
-          if (lastGuessConfirmation.customId === 'no') {
-            content = 'Baiklah, saya menyerah 🏳️🏳️🏳️. Saya tidak tahu lagi apa yang sedang kamu pikirkan.'
-          }
+      lastWinAki = await aki.win()
+      const firstGuess = lastWinAki.guesses[0]
 
-          await lastGuessConfirmation.update({ content, embeds, components: [] })
+      const guessQuestionResponse = await replyGuessQuestion(firstGuess)
 
-          break
-        } catch (e) {
-          await interaction.editReply({
-            content: `Akinator dibatalkan karena tidak dijawab selama ${AKINATOR_MAX_RESPONSE_MINUTE} minute`,
+      // Guess question handling
+      try {
+        const guessQuestionConfirmation = await guessQuestionResponse.awaitMessageComponent(awaitMessageComponentOption)
+
+        if (guessQuestionConfirmation.customId === 'yes') {
+          await guessQuestionConfirmation.update({
+            content: 'Baik, berarti tebakan saya benar. Senang bermain dengan anda 😉',
+            embeds: [
+              createGuessEmbed(firstGuess).setFooter({
+                text: `Jumlah tebakan: ${guessCounter}`
+              })
+            ],
             components: []
           })
+
+          break
         }
+
+        if (guessQuestionConfirmation.customId === 'no') {
+          await guessQuestionConfirmation.deferUpdate()
+        }
+      } catch (e) {
+        await replyInactiveFallback()
+        console.error(e)
+      }
+    }
+
+    if (guessCounter >= AKINATOR_MAX_GUESS_COUNT && lastWinAki) {
+      const guesses = lastWinAki.guesses.slice(0, 5)
+
+      const finalGuessResponse = await replyFinalGuessQuestion(guesses)
+
+      // Final guess handling
+      try {
+        const finalGuessConfirmation = await finalGuessResponse.awaitMessageComponent(awaitMessageComponentOption)
+
+        let content = ''
+        const embeds = []
+
+        if (finalGuessConfirmation.customId === 'yes') {
+          content = 'Jika begitu, tokoh yang anda maksud adalah salah satu dari mereka. Senang bermain dengan anda 😉'
+          embeds.push(createFinalGuessEmbed(guesses))
+        }
+
+        if (finalGuessConfirmation.customId === 'no') {
+          content = 'Baiklah, saya menyerah 🏳️🏳️🏳️. Saya tidak tahu lagi apa yang sedang kamu pikirkan.'
+        }
+
+        await finalGuessConfirmation.update({ content, embeds, components: [] })
+
+        break
+      } catch (e) {
+        await replyInactiveFallback()
+        console.error(e)
       }
     }
   }
 }
+
+export default { data, execute }
