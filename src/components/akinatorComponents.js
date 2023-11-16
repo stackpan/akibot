@@ -1,5 +1,12 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js'
 
+/**
+ *
+ * @param {string} akiQuestion
+ * @param {string} akiProgress
+ * @param {number} akiCurrentStep
+ * @returns
+ */
 function createQuestionEmbed (akiQuestion, akiProgress, akiCurrentStep) {
   const embed = new EmbedBuilder()
   embed.setTitle(akiQuestion)
@@ -8,6 +15,14 @@ function createQuestionEmbed (akiQuestion, akiProgress, akiCurrentStep) {
   return embed
 }
 
+/**
+ *
+ * @param {string} name
+ * @param {string} description
+ * @param {string} picturePath
+ * @param {string} probability
+ * @returns
+ */
 function createGuessEmbed (name, description, picturePath, probability) {
   const embed = new EmbedBuilder()
   embed.setTitle(name)
@@ -20,6 +35,11 @@ function createGuessEmbed (name, description, picturePath, probability) {
   return embed
 }
 
+/**
+ *
+ * @param {import('aki-api/typings/src/functions').guess} guesses
+ * @returns
+ */
 function createFinalGuessEmbed (guesses) {
   const embed = new EmbedBuilder()
   embed.setTitle('Tebakan-tebakan saya adalah:')
@@ -31,6 +51,11 @@ function createFinalGuessEmbed (guesses) {
   return embed
 }
 
+/**
+ *
+ * @param {Array} akiAnswers
+ * @returns
+ */
 function createQuestionAnswerRow (akiAnswers) {
   const answerButtons = akiAnswers.map((answer, index) => {
     const button = new ButtonBuilder()
@@ -47,6 +72,11 @@ function createQuestionAnswerRow (akiAnswers) {
   return answerRow
 }
 
+/**
+ *
+ * @param {number} akiCurrentStep
+ * @returns
+ */
 function createQuestionActionRow (akiCurrentStep) {
   const backButton = new ButtonBuilder()
   backButton.setCustomId('back')

@@ -1,11 +1,10 @@
 {
   "name": "akibot",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "src/bot.js",
   "type": "module",
   "scripts": {
-    "start": "node index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node src/bot.js"
   },
   "author": "Ivan Rizkyanto",
   "license": "ISC",

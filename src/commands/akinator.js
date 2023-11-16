@@ -27,6 +27,14 @@ const data = new SlashCommandBuilder()
   .setDescription('Permainan menebak karakter')
 
 const execute = async function (interaction) {
+  /**
+   *
+   * @param {string} question
+   * @param {string} progress
+   * @param {string} answers
+   * @param {number} currentStep
+   * @returns
+   */
   const replyQuestion = async (question, progress, answers, currentStep) => {
     return await interaction.editReply({
       content: '',
@@ -40,11 +48,19 @@ const execute = async function (interaction) {
     })
   }
 
-  const replyGuessQuestion = async (guess) => {
+  /**
+   *
+   * @param {string} name
+   * @param {string} description
+   * @param {string} picturePath
+   * @param {string} probability
+   * @returns
+   */
+  const replyGuessQuestion = async (name, description, picturePath, probability) => {
     return await interaction.editReply({
       content: 'Apakah ini yang kamu maksud?',
       embeds: [
-        createGuessEmbed(guess)
+        createGuessEmbed(name, description, picturePath, probability)
       ],
       components: [
         createConfirmationActionRow()
@@ -52,6 +68,11 @@ const execute = async function (interaction) {
     })
   }
 
+  /**
+   *
+   * @param {import('aki-api/typings/src/functions/Request.js').guess} guesses
+   * @returns
+   */
   const replyFinalGuessQuestion = async (guesses) => {
     return await interaction.editReply({
       content: 'Apakah tokoh yang sedang anda pikirkan adalah salah satu dari mereka?',
@@ -75,8 +96,6 @@ const execute = async function (interaction) {
     filter: (i) => i.user.id === interaction.user.id,
     time: AKINATOR_MAX_RESPONSE_MINUTE * 60000
   }
-
-  const CHECKPOINT = aki.progress >= AKINATOR_GUESS_WHEN_PROGRESS || aki.currentStep % AKINATOR_GUESS_EVERY_STEP === 0
 
   await interaction.reply('Pikirkan seorang tokoh atau karakter untuk saya tebak...')
 
@@ -116,7 +135,7 @@ const execute = async function (interaction) {
       console.error(e)
     }
 
-    if (CHECKPOINT) {
+    if (aki.progress >= AKINATOR_GUESS_WHEN_PROGRESS || aki.currentStep % AKINATOR_GUESS_EVERY_STEP === 0) {
       await interaction.editReply({
         content: 'Tunggu sebentar, saya sedang menebak 🤔...',
         embeds: [],
@@ -128,19 +147,21 @@ const execute = async function (interaction) {
       lastWinAki = await aki.win()
       const firstGuess = lastWinAki.guesses[0]
 
-      const guessQuestionResponse = await replyGuessQuestion(firstGuess)
+      const guessQuestionResponse = await replyGuessQuestion(firstGuess.name, firstGuess.description, firstGuess.absolute_picture_path, firstGuess.proba)
 
       // Guess question handling
       try {
         const guessQuestionConfirmation = await guessQuestionResponse.awaitMessageComponent(awaitMessageComponentOption)
 
         if (guessQuestionConfirmation.customId === 'yes') {
+          const correctGuessEmbed = createGuessEmbed(firstGuess.name, firstGuess.description, firstGuess.absolute_picture_path, firstGuess.proba).setFooter({
+            text: `Jumlah tebakan: ${guessCounter}`
+          })
+
           await guessQuestionConfirmation.update({
             content: 'Baik, berarti tebakan saya benar. Senang bermain dengan anda 😉',
             embeds: [
-              createGuessEmbed(firstGuess).setFooter({
-                text: `Jumlah tebakan: ${guessCounter}`
-              })
+              correctGuessEmbed
             ],
             components: []
           })
