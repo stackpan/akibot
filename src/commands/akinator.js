@@ -20,8 +20,6 @@ import {
   createQuestionEmbed
 } from '../components/akinatorComponents.js'
 
-const aki = new Aki({ region: AKINATOR_REGION, childMode: AKINATOR_CHILD_MODE, proxy: AKINATOR_PROXY })
-
 const data = new SlashCommandBuilder()
   .setName('akinator')
   .setDescription('Permainan menebak karakter')
@@ -42,8 +40,8 @@ const execute = async function (interaction) {
         createQuestionEmbed(question, progress, currentStep)
       ],
       components: [
-        createQuestionAnswerRow(answers),
-        createQuestionActionRow(currentStep)
+        createQuestionAnswerRow(answers, false),
+        createQuestionActionRow(currentStep, false)
       ]
     })
   }
@@ -99,8 +97,11 @@ const execute = async function (interaction) {
 
   await interaction.reply('Pikirkan seorang tokoh atau karakter untuk saya tebak...')
 
+  const aki = new Aki({ region: AKINATOR_REGION, childMode: AKINATOR_CHILD_MODE, proxy: AKINATOR_PROXY })
+
   let lastWinAki = null
   let guessCounter = 0
+  let isGuessingPrevented = false
 
   let tempAki = await aki.start()
 
@@ -121,6 +122,13 @@ const execute = async function (interaction) {
         break
       }
 
+      await questionConfirmation.update({
+        components: [
+          createQuestionAnswerRow(tempAki.answers, true),
+          createQuestionActionRow(aki.currentStep, true)
+        ]
+      })
+
       if (questionConfirmation.customId === 'back') {
         tempAki = await aki.back()
       } else {
@@ -128,53 +136,56 @@ const execute = async function (interaction) {
 
         tempAki = await aki.step(answer)
       }
-
-      await questionConfirmation.deferUpdate()
     } catch (e) {
       await replyInactiveFallback()
       console.error(e)
     }
 
     if (aki.progress >= AKINATOR_GUESS_WHEN_PROGRESS || aki.currentStep % AKINATOR_GUESS_EVERY_STEP === 0) {
-      await interaction.editReply({
-        content: 'Tunggu sebentar, saya sedang menebak 🤔...',
-        embeds: [],
-        components: []
-      })
+      if (isGuessingPrevented === true) {
+        isGuessingPrevented = false
+      } else {
+        await interaction.editReply({
+          content: 'Tunggu sebentar, saya sedang menebak 🤔...',
+          embeds: [],
+          components: []
+        })
 
-      guessCounter++
+        guessCounter++
 
-      lastWinAki = await aki.win()
-      const firstGuess = lastWinAki.guesses[0]
+        lastWinAki = await aki.win()
+        const firstGuess = lastWinAki.guesses[0]
 
-      const guessQuestionResponse = await replyGuessQuestion(firstGuess.name, firstGuess.description, firstGuess.absolute_picture_path, firstGuess.proba)
+        const guessQuestionResponse = await replyGuessQuestion(firstGuess.name, firstGuess.description, firstGuess.absolute_picture_path, firstGuess.proba)
 
-      // Guess question handling
-      try {
-        const guessQuestionConfirmation = await guessQuestionResponse.awaitMessageComponent(awaitMessageComponentOption)
+        // Guess question handling
+        try {
+          const guessQuestionConfirmation = await guessQuestionResponse.awaitMessageComponent(awaitMessageComponentOption)
 
-        if (guessQuestionConfirmation.customId === 'yes') {
-          const correctGuessEmbed = createGuessEmbed(firstGuess.name, firstGuess.description, firstGuess.absolute_picture_path, firstGuess.proba).setFooter({
-            text: `Jumlah tebakan: ${guessCounter}`
-          })
+          if (guessQuestionConfirmation.customId === 'yes') {
+            const correctGuessEmbed = createGuessEmbed(firstGuess.name, firstGuess.description, firstGuess.absolute_picture_path, firstGuess.proba).setFooter({
+              text: `Jumlah tebakan: ${guessCounter}`
+            })
 
-          await guessQuestionConfirmation.update({
-            content: 'Baik, berarti tebakan saya benar. Senang bermain dengan anda 😉',
-            embeds: [
-              correctGuessEmbed
-            ],
-            components: []
-          })
+            await guessQuestionConfirmation.update({
+              content: 'Baik, berarti tebakan saya benar. Senang bermain dengan anda 😉',
+              embeds: [
+                correctGuessEmbed
+              ],
+              components: []
+            })
 
-          break
+            break
+          }
+
+          if (guessQuestionConfirmation.customId === 'no') {
+            await guessQuestionConfirmation.deferUpdate()
+            isGuessingPrevented = true
+          }
+        } catch (e) {
+          await replyInactiveFallback()
+          console.error(e)
         }
-
-        if (guessQuestionConfirmation.customId === 'no') {
-          await guessQuestionConfirmation.deferUpdate()
-        }
-      } catch (e) {
-        await replyInactiveFallback()
-        console.error(e)
       }
     }
 

@@ -54,14 +54,16 @@ function createFinalGuessEmbed (guesses) {
 /**
  *
  * @param {Array} akiAnswers
+ * @param {boolean} disabled
  * @returns
  */
-function createQuestionAnswerRow (akiAnswers) {
+function createQuestionAnswerRow (akiAnswers, disabled) {
   const answerButtons = akiAnswers.map((answer, index) => {
     const button = new ButtonBuilder()
     button.setCustomId(index.toString())
       .setLabel(answer)
       .setStyle(ButtonStyle.Primary)
+      .setDisabled(disabled)
 
     return button
   })
@@ -75,18 +77,21 @@ function createQuestionAnswerRow (akiAnswers) {
 /**
  *
  * @param {number} akiCurrentStep
+ * @param {boolean} disabled
  * @returns
  */
-function createQuestionActionRow (akiCurrentStep) {
+function createQuestionActionRow (akiCurrentStep, disabled) {
   const backButton = new ButtonBuilder()
   backButton.setCustomId('back')
     .setLabel('Kembali')
     .setStyle(ButtonStyle.Secondary)
+    .setDisabled(disabled)
 
   const stopButton = new ButtonBuilder()
   stopButton.setCustomId('stop')
     .setLabel('Berhenti')
     .setStyle(ButtonStyle.Danger)
+    .setDisabled(disabled)
 
   const actionRow = new ActionRowBuilder()
   if (akiCurrentStep !== 0) {
