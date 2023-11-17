@@ -85,7 +85,8 @@ const execute = async function (interaction) {
 
   const replyInactiveFallback = async () => {
     await interaction.editReply({
-      content: `Akinator dibatalkan karena tidak dijawab selama ${AKINATOR_MAX_RESPONSE_MINUTE} minute`,
+      content: `Akinator dibatalkan karena tidak dijawab selama ${AKINATOR_MAX_RESPONSE_MINUTE} menit`,
+      embeds: [],
       components: []
     })
   }
@@ -138,7 +139,10 @@ const execute = async function (interaction) {
         if (lastStep < aki.currentStep) lastStep = aki.currentStep
       }
     } catch (e) {
-      await replyInactiveFallback()
+      if (e.code === 'InteractionCollectorError') {
+        await replyInactiveFallback()
+        break
+      }
       console.error(e)
     }
 
@@ -181,7 +185,10 @@ const execute = async function (interaction) {
           lastStep++
         }
       } catch (e) {
-        await replyInactiveFallback()
+        if (e.code === 'InteractionCollectorError') {
+          await replyInactiveFallback()
+          break
+        }
         console.error(e)
       }
     }
@@ -211,7 +218,10 @@ const execute = async function (interaction) {
 
         break
       } catch (e) {
-        await replyInactiveFallback()
+        if (e.code === 'InteractionCollectorError') {
+          await replyInactiveFallback()
+          break
+        }
         console.error(e)
       }
     }
