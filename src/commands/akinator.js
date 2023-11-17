@@ -101,7 +101,7 @@ const execute = async function (interaction) {
 
   let lastWinAki = null
   let guessCounter = 0
-  let isGuessingPrevented = false
+  let preventGuessingCountdown = 0
 
   let tempAki = await aki.start()
 
@@ -142,8 +142,8 @@ const execute = async function (interaction) {
     }
 
     if (aki.progress >= AKINATOR_GUESS_WHEN_PROGRESS || aki.currentStep % AKINATOR_GUESS_EVERY_STEP === 0) {
-      if (isGuessingPrevented === true) {
-        isGuessingPrevented = false
+      if (preventGuessingCountdown > 0) {
+        preventGuessingCountdown--
       } else {
         await interaction.editReply({
           content: 'Tunggu sebentar, saya sedang menebak 🤔...',
@@ -180,7 +180,7 @@ const execute = async function (interaction) {
 
           if (guessQuestionConfirmation.customId === 'no') {
             await guessQuestionConfirmation.deferUpdate()
-            isGuessingPrevented = true
+            preventGuessingCountdown = 2
           }
         } catch (e) {
           await replyInactiveFallback()
