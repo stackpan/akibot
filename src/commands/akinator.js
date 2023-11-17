@@ -101,7 +101,7 @@ const execute = async function (interaction) {
 
   let lastWinAki = null
   let guessCounter = 0
-  let preventGuessingCountdown = 0
+  let lastStep = 0
 
   let tempAki = await aki.start()
 
@@ -135,57 +135,54 @@ const execute = async function (interaction) {
         const answer = Number(questionConfirmation.customId)
 
         tempAki = await aki.step(answer)
+        if (lastStep < aki.currentStep) lastStep = aki.currentStep
       }
     } catch (e) {
       await replyInactiveFallback()
       console.error(e)
     }
 
-    if (aki.progress >= AKINATOR_GUESS_WHEN_PROGRESS || aki.currentStep % AKINATOR_GUESS_EVERY_STEP === 0) {
-      if (preventGuessingCountdown > 0) {
-        preventGuessingCountdown--
-      } else {
-        await interaction.editReply({
-          content: 'Tunggu sebentar, saya sedang menebak 🤔...',
-          embeds: [],
-          components: []
-        })
+    if (aki.progress >= AKINATOR_GUESS_WHEN_PROGRESS || lastStep % AKINATOR_GUESS_EVERY_STEP === 0) {
+      await interaction.editReply({
+        content: 'Tunggu sebentar, saya sedang menebak 🤔...',
+        embeds: [],
+        components: []
+      })
 
-        guessCounter++
+      guessCounter++
 
-        lastWinAki = await aki.win()
-        const firstGuess = lastWinAki.guesses[0]
+      lastWinAki = await aki.win()
+      const firstGuess = lastWinAki.guesses[0]
 
-        const guessQuestionResponse = await replyGuessQuestion(firstGuess.name, firstGuess.description, firstGuess.absolute_picture_path, firstGuess.proba)
+      const guessQuestionResponse = await replyGuessQuestion(firstGuess.name, firstGuess.description, firstGuess.absolute_picture_path, firstGuess.proba)
 
-        // Guess question handling
-        try {
-          const guessQuestionConfirmation = await guessQuestionResponse.awaitMessageComponent(awaitMessageComponentOption)
+      // Guess question handling
+      try {
+        const guessQuestionConfirmation = await guessQuestionResponse.awaitMessageComponent(awaitMessageComponentOption)
 
-          if (guessQuestionConfirmation.customId === 'yes') {
-            const correctGuessEmbed = createGuessEmbed(firstGuess.name, firstGuess.description, firstGuess.absolute_picture_path, firstGuess.proba).setFooter({
-              text: `Jumlah tebakan: ${guessCounter}`
-            })
+        if (guessQuestionConfirmation.customId === 'yes') {
+          const correctGuessEmbed = createGuessEmbed(firstGuess.name, firstGuess.description, firstGuess.absolute_picture_path, firstGuess.proba).setFooter({
+            text: `Jumlah tebakan: ${guessCounter}`
+          })
 
-            await guessQuestionConfirmation.update({
-              content: 'Baik, berarti tebakan saya benar. Senang bermain dengan anda 😉',
-              embeds: [
-                correctGuessEmbed
-              ],
-              components: []
-            })
+          await guessQuestionConfirmation.update({
+            content: 'Baik, berarti tebakan saya benar. Senang bermain dengan anda 😉',
+            embeds: [
+              correctGuessEmbed
+            ],
+            components: []
+          })
 
-            break
-          }
-
-          if (guessQuestionConfirmation.customId === 'no') {
-            await guessQuestionConfirmation.deferUpdate()
-            preventGuessingCountdown = 2
-          }
-        } catch (e) {
-          await replyInactiveFallback()
-          console.error(e)
+          break
         }
+
+        if (guessQuestionConfirmation.customId === 'no') {
+          await guessQuestionConfirmation.deferUpdate()
+          lastStep++
+        }
+      } catch (e) {
+        await replyInactiveFallback()
+        console.error(e)
       }
     }
 
