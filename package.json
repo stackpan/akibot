@@ -1,7 +1,7 @@
 {
   "name": "akibot",
   "description": "Simple akinator discord bot ",
-  "version": "1.0.3",
+  "version": "1.0.2",
   "repository": "https://github.com/stackpan/akibot",
   "main": "src/bot.js",
   "type": "module",
